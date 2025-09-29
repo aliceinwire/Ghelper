@@ -7,6 +7,7 @@ import shutil
 import subprocess
 import sys
 import tarfile
+import urllib
 
 linuxpatches_folder = "../linux-patches/"
 
@@ -119,29 +120,63 @@ def is_revision(new_version, revision):
     kernel_dir = "kernel-sources/"
     os.mkdir(kernel_dir)
     if revision:
+        download_success = False
         kernel_tarxz = "linux-" + new_version + ".tar.gz"
-        urlretrieve("https://git.kernel.org/torvalds/t/" +
-                    kernel_tarxz, kernel_tarxz)
-        extract(kernel_tarxz)
+        print("Try to download " + kernel_tarxz)
+        try:
+            kernel_tarxz_fullurl = "https://git.kernel.org/torvalds/t/" + \
+                    kernel_tarxz
+            print("Try: " + kernel_tarxz_fullurl)
+            urlretrieve(kernel_tarxz_fullurl, kernel_tarxz)
+            extract(kernel_tarxz)
+            download_success = True
+        except urllib.error.URLError as e:
+            print(e)
     else:
         kernel_tarxz = "linux-" + new_version + ".tar.xz"
+        print("Try to download "+kernel_tarxz)
         if os.path.exists(kernel_tarxz):
             if os.path.exists("linux-" + new_version):
                 pass
             else:
                 extract(kernel_tarxz)
         else:
+            download_success = False
             try:
-                print("Try getting "+kernel_tarxz+" from distfiles")
                 revision_prefix = get_revision_prefix(kernel_tarxz)
-                urlretrieve("http://distfiles.gentoo.org/distfiles/" +
-                            revision_prefix + "/" + kernel_tarxz, kernel_tarxz)
-            except:
-                kernel_tarxz = "linux-" + new_version + ".tar.gz"
-                print("getting "+kernel_tarxz+" from git.kernel.org")
-                urlretrieve("https://git.kernel.org/torvalds/t/" +
-                            kernel_tarxz, kernel_tarxz)
-            extract(kernel_tarxz)
+                kernel_tarxz_fullurl = "http://distfiles.gentoo.org/distfiles/" + \
+                revision_prefix + "/" + kernel_tarxz
+                print("Try: " + kernel_tarxz_fullurl)
+                urlretrieve(kernel_tarxz_fullurl, kernel_tarxz)
+                download_success = True
+            except urllib.error.URLError as e:
+                print(e)
+            if download_success == False:
+                try:
+                    kernel_tarxz = "linux-" + new_version + ".tar.gz"
+                    major_ver = new_version_split[0]
+                    kernel_tarxz_fullurl = "https://cdn.kernel.org/pub/linux/kernel/v" + \
+                            major_ver + ".x/" + kernel_tarxz
+                    print("Try: " + kernel_tarxz_fullurl)
+                    urlretrieve(kernel_tarxz_fullurl, kernel_tarxz)
+                    download_success = True
+                except urllib.error.URLError as e:
+                    print(e)
+            if download_success == False:
+                try:
+                    kernel_tarxz = "linux-" + new_version + ".tar.gz"
+                    kernel_tarxz_fullurl = "https://git.kernel.org/torvalds/t/" + kernel_tarxz
+                    print("Try: " + kernel_tarxz_fullurl)
+                    urlretrieve(kernel_tarxz_fullurl, kernel_tarxz)
+                    download_success = True
+                except urllib.error.URLError as e:
+                    print(e)
+    if download_success == True:
+        extract(kernel_tarxz)
+    else:
+        print("ERROR: couldn't download " + kernel_tarxz)
+        sys.exit(1)
+
 
 for i in tr_table:
     version_number = get_version_number(i)
